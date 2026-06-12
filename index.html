@@ -9,6 +9,8 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, getCountFromServer }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBkXwvFSxjMDirrLTX4A7A9nxGSV-rcSJ8",
@@ -22,6 +24,18 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
+  const db = getFirestore(app);
+
+  // Expose globals
+  window._db = db;
+  window._fsCollection = collection;
+  window._fsAddDoc = addDoc;
+  window._fsGetDocs = getDocs;
+  window._fsQuery = query;
+  window._fsOrderBy = orderBy;
+  window._fsLimit = limit;
+  window._fsTimestamp = serverTimestamp;
+  window._fsGetCount = getCountFromServer;
 
   window._fbSignIn = () => signInWithPopup(auth, provider);
   window._fbSignOut = () => signOut(auth);
@@ -39,6 +53,14 @@
         el.querySelector('.topbar-avatar').src = user.photoURL || '';
         el.querySelector('.topbar-username').textContent = user.email || user.displayName || '';
       });
+      // Show admin button if admin
+      const ADMINS = ['prastyaaris6@gmail.com'];
+      if (ADMINS.includes(user.email)) {
+        document.querySelectorAll('.admin-btn-wrap').forEach(el => el.style.display = 'block');
+        window._isAdmin = true;
+      } else {
+        window._isAdmin = false;
+      }
       showScreen('homeScreen');
     } else {
       showScreen('loginScreen');
@@ -589,6 +611,120 @@
     cursor: pointer; transition: background 0.2s;
   }
   .btn-logout:hover { background: rgba(239,68,68,0.2); }
+  /* ===== ADMIN PANEL ===== */
+  #adminScreen .content {
+    flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px;
+  }
+  .admin-header { display: flex; flex-direction: column; gap: 4px; }
+  .admin-title { font-size: 22px; font-weight: 800; }
+  .admin-sub { font-size: 13px; color: var(--muted); }
+
+  .admin-stats-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  }
+  .admin-stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; text-align: center;
+  }
+  .admin-stat-icon { font-size: 24px; margin-bottom: 8px; }
+  .admin-stat-val {
+    font-size: 28px; font-weight: 800; color: var(--blue-light);
+    line-height: 1;
+  }
+  .admin-stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+
+  .admin-section-title {
+    font-size: 13px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
+  }
+
+  /* Top mapel bar chart */
+  .mapel-bar-list { display: flex; flex-direction: column; gap: 10px; }
+  .mapel-bar-item { display: flex; flex-direction: column; gap: 5px; }
+  .mapel-bar-label {
+    display: flex; justify-content: space-between;
+    font-size: 13px; font-weight: 600;
+  }
+  .mapel-bar-label span:last-child { color: var(--muted); font-weight: 400; }
+  .mapel-bar-track {
+    height: 8px; background: var(--navy3); border-radius: 4px; overflow: hidden;
+  }
+  .mapel-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #3B82F6, #60A5FA);
+    border-radius: 4px; transition: width 0.8s ease;
+  }
+
+  /* Activity log */
+  .activity-list { display: flex; flex-direction: column; gap: 10px; }
+  .activity-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .activity-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0; background: var(--navy3);
+    border: 2px solid var(--border);
+  }
+  .activity-info { flex: 1; overflow: hidden; }
+  .activity-name {
+    font-size: 13px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .activity-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .activity-score {
+    font-size: 18px; font-weight: 800;
+    min-width: 44px; text-align: right;
+  }
+  .activity-score.high { color: var(--green); }
+  .activity-score.mid { color: var(--yellow); }
+  .activity-score.low { color: var(--red); }
+
+  /* Score distribution */
+  .score-dist-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .score-dist-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 8px; text-align: center;
+  }
+  .score-dist-range { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .score-dist-val { font-size: 22px; font-weight: 800; margin-top: 4px; }
+  .score-dist-item.s-high .score-dist-val { color: var(--green); }
+  .score-dist-item.s-mid .score-dist-val { color: var(--yellow); }
+  .score-dist-item.s-low .score-dist-val { color: #F97316; }
+  .score-dist-item.s-fail .score-dist-val { color: var(--red); }
+
+  .admin-loading {
+    text-align: center; padding: 40px; color: var(--muted); font-size: 14px;
+  }
+  .admin-empty {
+    text-align: center; padding: 30px; color: var(--muted); font-size: 13px;
+  }
+
+  /* Admin button in drawer */
+  .btn-admin {
+    width: 100%; margin-bottom: 10px; padding: 12px;
+    background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3);
+    color: var(--blue-light); font-family: 'Poppins', sans-serif;
+    font-size: 13px; font-weight: 600; border-radius: var(--radius-sm);
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-admin:hover { background: rgba(59,130,246,0.22); }
+  .admin-btn-wrap { display: none; }
+
+  .admin-refresh-btn {
+    background: var(--navy3); border: 1px solid var(--border);
+    color: var(--muted); font-family: 'Poppins', sans-serif;
+    font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+  }
+  .admin-refresh-btn:hover { border-color: var(--blue); color: var(--white); }
+  .admin-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .admin-section-header .admin-section-title { margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -634,6 +770,9 @@
     </div>
     <button class="api-save-btn" onclick="saveApiKey()">Simpan API Key</button>
     <div class="api-status" id="apiStatus">✅ API Key tersimpan</div>
+  </div>
+  <div class="admin-btn-wrap">
+    <button class="btn-admin" onclick="openAdmin(); closeDrawer();">📊 Admin Panel</button>
   </div>
   <button class="btn-logout" onclick="logoutUser()">🚪 Keluar dari Akun</button>
 </div>
@@ -818,6 +957,27 @@
       <button class="btn-ulang" onclick="ulangUjian()">🔄 Ujian Lagi (Topik Sama)</button>
       <button class="btn-home" onclick="goHome()">🏠 Kembali ke Menu</button>
     </div>
+  </div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div class="screen" id="adminScreen">
+  <div class="topbar">
+    <button class="hamburger-btn" onclick="goHome()">←</button>
+    <div class="topbar-user">
+      <img class="topbar-avatar" src="" alt="" />
+      <span class="topbar-username"></span>
+    </div>
+    <div class="topbar-logo">
+      <div class="logo-icon">📊</div>
+      <div>
+        <div class="logo-text">Admin<span>Panel</span></div>
+        <div class="topbar-sub">SimUjian</div>
+      </div>
+    </div>
+  </div>
+  <div class="content scrollable" id="adminContent">
+    <div class="admin-loading">⏳ Memuat data...</div>
   </div>
 </div>
 
@@ -1228,6 +1388,9 @@ function selesaiUjian(timeout) {
 
   const nilai = Math.round((benar / total) * 100);
 
+  // Save to Firestore
+  saveHasilUjian({ benar, salah, skip, nilai, total });
+
   // Emoji & title
   let emoji, title;
   if (nilai >= 90) { emoji = '🏆'; title = 'Luar Biasa!'; }
@@ -1303,7 +1466,181 @@ function goHome() {
   showScreen('homeScreen');
 }
 
-// ===== UTILITIES =====
+// ===== FIRESTORE: SAVE HASIL =====
+async function saveHasilUjian({ benar, salah, skip, nilai, total }) {
+  try {
+    const user = window._fbUser;
+    if (!user || !window._db) return;
+    const mapelObj = MAPEL[state.jenjang]?.find(m => m.id === state.mapel);
+    await window._fsAddDoc(window._fsCollection(window._db, 'hasil_ujian'), {
+      uid: user.uid,
+      nama: user.displayName || '',
+      email: user.email || '',
+      foto: user.photoURL || '',
+      jenjang: state.jenjang,
+      mapel: state.mapel,
+      mapelName: mapelObj?.name || state.mapel,
+      jumlahSoal: total,
+      benar, salah, skip, nilai,
+      timestamp: window._fsTimestamp(),
+    });
+  } catch (e) {
+    console.warn('Gagal simpan hasil:', e);
+  }
+}
+
+// ===== ADMIN PANEL =====
+function openAdmin() {
+  if (!window._isAdmin) { showToast('Akses ditolak', 'error'); return; }
+  showScreen('adminScreen');
+  loadAdminData();
+}
+
+async function loadAdminData() {
+  const el = document.getElementById('adminContent');
+  el.innerHTML = '<div class="admin-loading">⏳ Memuat data...</div>';
+  try {
+    const db = window._db;
+    const col = window._fsCollection(db, 'hasil_ujian');
+
+    // Fetch last 200 results
+    const q = window._fsQuery(col, window._fsOrderBy('timestamp', 'desc'), window._fsLimit(200));
+    const snap = await window._fsGetDocs(q);
+    const docs = snap.docs.map(d => d.data());
+
+    if (docs.length === 0) {
+      el.innerHTML = `
+        <div class="admin-header">
+          <div class="admin-title">📊 Admin Panel</div>
+          <div class="admin-sub">Halo, ${window._fbUser?.displayName || 'Admin'}!</div>
+        </div>
+        <div class="admin-empty">Belum ada data ujian. Data akan muncul setelah user mengerjakan ujian.</div>`;
+      return;
+    }
+
+    // Compute stats
+    const totalUjian = docs.length;
+    const uniqueUsers = new Set(docs.map(d => d.uid)).size;
+    const rataRata = Math.round(docs.reduce((a, d) => a + d.nilai, 0) / totalUjian);
+    const nilaiTertinggi = Math.max(...docs.map(d => d.nilai));
+
+    // Mapel frequency
+    const mapelCount = {};
+    docs.forEach(d => {
+      const key = d.mapelName || d.mapel;
+      mapelCount[key] = (mapelCount[key] || 0) + 1;
+    });
+    const topMapel = Object.entries(mapelCount).sort((a,b) => b[1]-a[1]).slice(0, 5);
+    const maxMapelCount = topMapel[0]?.[1] || 1;
+
+    // Score distribution
+    const dist = { high: 0, mid: 0, low: 0, fail: 0 };
+    docs.forEach(d => {
+      if (d.nilai >= 75) dist.high++;
+      else if (d.nilai >= 60) dist.mid++;
+      else if (d.nilai >= 40) dist.low++;
+      else dist.fail++;
+    });
+
+    // Last 20 activity
+    const recent = docs.slice(0, 20);
+
+    el.innerHTML = `
+      <div class="admin-header">
+        <div class="admin-title">📊 Admin Panel</div>
+        <div class="admin-sub">Halo, ${window._fbUser?.displayName || 'Admin'}!</div>
+      </div>
+
+      <div class="admin-stats-grid">
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon">📝</div>
+          <div class="admin-stat-val">${totalUjian}</div>
+          <div class="admin-stat-label">Total Ujian</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon">👥</div>
+          <div class="admin-stat-val">${uniqueUsers}</div>
+          <div class="admin-stat-label">Total User</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon">📈</div>
+          <div class="admin-stat-val">${rataRata}</div>
+          <div class="admin-stat-label">Rata-rata Nilai</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon">🏆</div>
+          <div class="admin-stat-val">${nilaiTertinggi}</div>
+          <div class="admin-stat-label">Nilai Tertinggi</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="admin-section-title">📊 Distribusi Nilai</div>
+        <div class="score-dist-grid">
+          <div class="score-dist-item s-high">
+            <div class="score-dist-range">≥75</div>
+            <div class="score-dist-val">${dist.high}</div>
+          </div>
+          <div class="score-dist-item s-mid">
+            <div class="score-dist-range">60–74</div>
+            <div class="score-dist-val">${dist.mid}</div>
+          </div>
+          <div class="score-dist-item s-low">
+            <div class="score-dist-range">40–59</div>
+            <div class="score-dist-val">${dist.low}</div>
+          </div>
+          <div class="score-dist-item s-fail">
+            <div class="score-dist-range">&lt;40</div>
+            <div class="score-dist-val">${dist.fail}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="admin-section-title">📚 Mapel Terpopuler</div>
+        <div class="mapel-bar-list">
+          ${topMapel.map(([name, count]) => `
+            <div class="mapel-bar-item">
+              <div class="mapel-bar-label">
+                <span>${name}</span>
+                <span>${count} ujian</span>
+              </div>
+              <div class="mapel-bar-track">
+                <div class="mapel-bar-fill" style="width:${Math.round((count/maxMapelCount)*100)}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div>
+        <div class="admin-section-header">
+          <div class="admin-section-title">🕐 Aktivitas Terbaru</div>
+          <button class="admin-refresh-btn" onclick="loadAdminData()">🔄 Refresh</button>
+        </div>
+        <div class="activity-list">
+          ${recent.map(d => {
+            const scoreClass = d.nilai >= 75 ? 'high' : d.nilai >= 50 ? 'mid' : 'low';
+            const ts = d.timestamp?.toDate ? d.timestamp.toDate() : null;
+            const timeStr = ts ? ts.toLocaleDateString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+            return `
+              <div class="activity-item">
+                <img class="activity-avatar" src="${d.foto || ''}" alt="" onerror="this.src=''" />
+                <div class="activity-info">
+                  <div class="activity-name">${d.nama || d.email || 'User'}</div>
+                  <div class="activity-detail">${d.jenjang} • ${d.mapelName || d.mapel} • ${d.jumlahSoal} soal${timeStr ? ' • ' + timeStr : ''}</div>
+                </div>
+                <div class="activity-score ${scoreClass}">${d.nilai}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="admin-empty">❌ Gagal memuat data: ${e.message}</div>`;
+  }
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
