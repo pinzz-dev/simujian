@@ -29,9 +29,16 @@
   onAuthStateChanged(auth, (user) => {
     window._fbUser = user || null;
     if (user) {
+      // Drawer profile
       document.getElementById('userAvatar').src = user.photoURL || '';
       document.getElementById('userName').textContent = user.displayName || 'User';
       document.getElementById('userEmail').textContent = user.email || '';
+      // All topbar user chips
+      document.querySelectorAll('.topbar-user').forEach(el => {
+        el.style.display = 'flex';
+        el.querySelector('.topbar-avatar').src = user.photoURL || '';
+        el.querySelector('.topbar-username').textContent = user.email || user.displayName || '';
+      });
       showScreen('homeScreen');
     } else {
       showScreen('loginScreen');
@@ -104,6 +111,22 @@
   }
   .hamburger-btn:hover { background: var(--navy3); border-color: var(--blue); }
 
+  .topbar-user {
+    display: none; align-items: center; gap: 8px;
+    background: var(--navy3); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 12px 5px 5px;
+    max-width: 180px; overflow: hidden;
+  }
+  .topbar-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    background: var(--navy2);
+  }
+  .topbar-username {
+    font-size: 12px; font-weight: 600; color: var(--white);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
   /* ===== DRAWER ===== */
   .drawer-overlay {
     display: none; position: fixed; inset: 0;
@@ -167,6 +190,19 @@
     color: var(--green); display: none;
   }
   .api-status.show { display: block; }
+
+  .topbar-user {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    margin-left: 10px; overflow: hidden;
+  }
+  .topbar-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--blue); flex-shrink: 0;
+  }
+  .topbar-username {
+    font-size: 12px; font-weight: 600; color: var(--white);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
   /* ===== HOME SCREEN ===== */
   #homeScreen .content {
@@ -606,6 +642,10 @@
 <div class="screen active" id="homeScreen">
   <div class="topbar">
     <button class="hamburger-btn" onclick="openDrawer()">☰</button>
+    <div class="topbar-user" id="topbarUser" style="display:none">
+      <img class="topbar-avatar" id="topbarAvatar" src="" alt="" />
+      <span class="topbar-username" id="topbarUsername"></span>
+    </div>
     <div class="topbar-logo">
       <div class="logo-icon">📝</div>
       <div>
@@ -671,6 +711,10 @@
 <div class="screen" id="ujianScreen">
   <div class="topbar">
     <button class="hamburger-btn" onclick="openDrawer()">☰</button>
+    <div class="topbar-user">
+      <img class="topbar-avatar" src="" alt="" />
+      <span class="topbar-username"></span>
+    </div>
     <div class="topbar-logo">
       <div class="logo-icon">📝</div>
       <div>
@@ -713,6 +757,10 @@
 <div class="screen" id="resultScreen">
   <div class="topbar">
     <button class="hamburger-btn" onclick="openDrawer()">☰</button>
+    <div class="topbar-user">
+      <img class="topbar-avatar" src="" alt="" />
+      <span class="topbar-username"></span>
+    </div>
     <div class="topbar-logo">
       <div class="logo-icon">📝</div>
       <div>
