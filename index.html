@@ -1615,12 +1615,30 @@ async function loadMaintenanceAdmin() {
   `;
 }
 
-function toggleMaintLocal() {
+async function toggleMaintLocal() {
   state._maintEnabled = !state._maintEnabled;
   const t = document.getElementById('maintToggle');
   const d = document.getElementById('maintStatusDesc');
   t.classList.toggle('on', state._maintEnabled);
   d.textContent = state._maintEnabled ? 'Aktif — user lain tidak bisa mulai ujian' : 'Nonaktif — semua user bisa mulai ujian';
+
+  // Auto-save langsung ke Firestore setiap kali toggle diklik
+  const message = document.getElementById('maintMessage')?.value.trim() || '';
+  try {
+    await window._fsSetDoc(MAINT_DOC(), {
+      enabled: !!state._maintEnabled,
+      message,
+      updatedBy: window._fbUser?.email || '',
+      updatedAt: window._fsTimestamp(),
+    });
+    showToast(state._maintEnabled ? '✅ Maintenance diaktifkan' : '✅ Maintenance dinonaktifkan');
+  } catch (e) {
+    showToast('Gagal simpan: ' + e.message, 'error');
+    // rollback tampilan kalau gagal simpan
+    state._maintEnabled = !state._maintEnabled;
+    t.classList.toggle('on', state._maintEnabled);
+    d.textContent = state._maintEnabled ? 'Aktif — user lain tidak bisa mulai ujian' : 'Nonaktif — semua user bisa mulai ujian';
+  }
 }
 
 async function saveMaintenance() {
