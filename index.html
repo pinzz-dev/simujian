@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, getCountFromServer }
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, getCountFromServer, doc, getDoc, setDoc }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -36,6 +36,9 @@
   window._fsLimit = limit;
   window._fsTimestamp = serverTimestamp;
   window._fsGetCount = getCountFromServer;
+  window._fsDoc = doc;
+  window._fsGetDoc = getDoc;
+  window._fsSetDoc = setDoc;
 
   window._fbSignIn = () => signInWithPopup(auth, provider);
   window._fbSignOut = () => signOut(auth);
@@ -723,6 +726,51 @@
     font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600;
     cursor: pointer; margin-bottom: 8px; display: inline-flex; align-items: center; gap: 6px;
   }
+
+  /* Maintenance feature */
+  .maint-status-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; display: flex;
+    align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .maint-status-info { display: flex; flex-direction: column; gap: 2px; }
+  .maint-status-label { font-size: 13px; font-weight: 700; }
+  .maint-status-desc { font-size: 11px; color: var(--muted); }
+  .maint-toggle {
+    position: relative; width: 50px; height: 28px; flex-shrink: 0;
+    background: var(--navy3); border: 1px solid var(--border);
+    border-radius: 999px; cursor: pointer; transition: background 0.2s;
+  }
+  .maint-toggle.on { background: var(--green); border-color: var(--green); }
+  .maint-toggle .knob {
+    position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
+    background: var(--white); border-radius: 50%; transition: left 0.2s;
+  }
+  .maint-toggle.on .knob { left: 24px; }
+  .maint-msg-label {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px;
+  }
+  .maint-textarea {
+    width: 100%; min-height: 100px; background: var(--navy3);
+    border: 1px solid var(--border); color: var(--white);
+    font-family: 'Poppins', sans-serif; font-size: 13px; padding: 12px;
+    border-radius: var(--radius-sm); outline: none; resize: vertical;
+    line-height: 1.5;
+  }
+  .maint-textarea:focus { border-color: var(--blue); }
+  .maint-save-btn {
+    width: 100%; margin-top: 12px; padding: 12px;
+    background: var(--blue); border: none; color: #fff;
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
+    border-radius: var(--radius-sm); cursor: pointer; transition: background 0.2s;
+  }
+  .maint-save-btn:hover { background: #2563EB; }
+  .maint-banner {
+    background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35);
+    color: var(--yellow); border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 12px; line-height: 1.5; margin-top: 16px;
+  }
   .admin-empty {
     text-align: center; padding: 30px; color: var(--muted); font-size: 13px;
   }
@@ -1197,6 +1245,15 @@ async function startUjian() {
     openDrawer();
     return;
   }
+
+  if (!window._isAdmin) {
+    const cfg = await getMaintenanceConfig();
+    if (cfg.enabled) {
+      showToast('🛠️ ' + (cfg.message || 'Sedang maintenance, coba lagi nanti.'), 'error');
+      return;
+    }
+  }
+
   showScreen('loadingScreen');
 
   const mapelObj = MAPEL[state.jenjang].find(m => m.id === state.mapel);
@@ -1514,7 +1571,74 @@ async function saveHasilUjian({ benar, salah, skip, nilai, total }) {
   }
 }
 
-// ===== ADMIN PANEL =====
+// ===== MAINTENANCE MODE =====
+const MAINT_DOC = () => window._fsDoc(window._db, 'config', 'maintenance');
+
+async function getMaintenanceConfig() {
+  try {
+    const snap = await window._fsGetDoc(MAINT_DOC());
+    if (snap.exists()) return snap.data();
+    return { enabled: false, message: '' };
+  } catch (e) {
+    console.warn('Gagal ambil config maintenance:', e);
+    return { enabled: false, message: '' };
+  }
+}
+
+async function loadMaintenanceAdmin() {
+  const el = document.getElementById('adminContent');
+  el.innerHTML = `<button class="admin-back-btn" onclick="showAdminMenu()">← Menu Admin</button><div class="admin-loading">⏳ Memuat...</div>`;
+
+  const cfg = await getMaintenanceConfig();
+  state._maintEnabled = !!cfg.enabled;
+
+  el.innerHTML = `
+    <button class="admin-back-btn" onclick="showAdminMenu()">← Menu Admin</button>
+    <div class="admin-header">
+      <div class="admin-title">🛠️ Mode Maintenance</div>
+      <div class="admin-sub">Saat aktif, semua user (kecuali kamu) tidak bisa memulai ujian.</div>
+    </div>
+    <div class="maint-status-box">
+      <div class="maint-status-info">
+        <div class="maint-status-label">Status Maintenance</div>
+        <div class="maint-status-desc" id="maintStatusDesc">${state._maintEnabled ? 'Aktif — user lain tidak bisa mulai ujian' : 'Nonaktif — semua user bisa mulai ujian'}</div>
+      </div>
+      <div class="maint-toggle ${state._maintEnabled ? 'on' : ''}" id="maintToggle" onclick="toggleMaintLocal()">
+        <div class="knob"></div>
+      </div>
+    </div>
+    <div>
+      <div class="maint-msg-label">Pesan untuk User</div>
+      <textarea class="maint-textarea" id="maintMessage" placeholder="Contoh: Sedang ada perbaikan sistem, silakan coba beberapa saat lagi.">${cfg.message || ''}</textarea>
+    </div>
+    <button class="maint-save-btn" onclick="saveMaintenance()">💾 Simpan</button>
+  `;
+}
+
+function toggleMaintLocal() {
+  state._maintEnabled = !state._maintEnabled;
+  const t = document.getElementById('maintToggle');
+  const d = document.getElementById('maintStatusDesc');
+  t.classList.toggle('on', state._maintEnabled);
+  d.textContent = state._maintEnabled ? 'Aktif — user lain tidak bisa mulai ujian' : 'Nonaktif — semua user bisa mulai ujian';
+}
+
+async function saveMaintenance() {
+  const message = document.getElementById('maintMessage').value.trim();
+  try {
+    await window._fsSetDoc(MAINT_DOC(), {
+      enabled: !!state._maintEnabled,
+      message,
+      updatedBy: window._fbUser?.email || '',
+      updatedAt: window._fsTimestamp(),
+    });
+    showToast('✅ Maintenance disimpan');
+  } catch (e) {
+    showToast('Gagal simpan: ' + e.message, 'error');
+  }
+}
+
+
 function openAdmin() {
   if (!window._isAdmin) { showToast('Akses ditolak', 'error'); return; }
   showScreen('adminScreen');
@@ -1534,6 +1658,14 @@ function showAdminMenu() {
         <div class="admin-menu-info">
           <div class="admin-menu-title">Statistik & Aktivitas</div>
           <div class="admin-menu-desc">Lihat ringkasan nilai, mapel terpopuler, dan aktivitas terbaru</div>
+        </div>
+        <div class="admin-menu-arrow">›</div>
+      </div>
+      <div class="admin-menu-item" onclick="loadMaintenanceAdmin()">
+        <div class="admin-menu-icon">🛠️</div>
+        <div class="admin-menu-info">
+          <div class="admin-menu-title">Mode Maintenance</div>
+          <div class="admin-menu-desc">Nyalakan/matikan ujian untuk user lain & atur pesannya</div>
         </div>
         <div class="admin-menu-arrow">›</div>
       </div>
