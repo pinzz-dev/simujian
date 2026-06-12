@@ -536,15 +536,16 @@
 
   /* ===== TOAST ===== */
   .toast {
-    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-150%);
+    opacity: 0; pointer-events: none;
     background: #1E293B; border: 1px solid var(--border);
     color: var(--white); font-size: 13px; font-weight: 500;
     padding: 12px 20px; border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    transition: transform 0.3s ease; z-index: 300;
+    transition: transform 0.3s ease, opacity 0.3s ease; z-index: 300;
     text-align: center; white-space: pre-line; line-height: 1.4;
   }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
   .toast.error { border-color: var(--red); color: #FCA5A5; }
   .toast.success { border-color: var(--green); color: #6EE7B7; }
 
@@ -1851,7 +1852,7 @@ function showToast(msg, type = '') {
   t.className = 'toast' + (type ? ' ' + type : '');
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
 }
 </script>
 </body>
