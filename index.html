@@ -160,13 +160,13 @@
   }
   .drawer-overlay.open { display: block; }
   .drawer {
-    position: fixed; top: 0; right: -320px; width: 300px;
+    position: fixed; top: 0; left: -320px; width: 300px;
     height: 100vh; background: var(--navy2);
-    border-left: 1px solid var(--border);
-    z-index: 201; transition: right 0.3s ease;
+    border-right: 1px solid var(--border);
+    z-index: 201; transition: left 0.3s ease;
     display: flex; flex-direction: column; padding: 24px 20px;
   }
-  .drawer.open { right: 0; }
+  .drawer.open { left: 0; }
   .drawer-header {
     display: flex; align-items: center;
     justify-content: space-between; margin-bottom: 28px;
@@ -536,12 +536,13 @@
 
   /* ===== TOAST ===== */
   .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px);
     background: #1E293B; border: 1px solid var(--border);
     color: var(--white); font-size: 13px; font-weight: 500;
-    padding: 12px 20px; border-radius: 30px;
+    padding: 12px 20px; border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    transition: transform 0.3s ease; z-index: 300; white-space: nowrap;
+    transition: transform 0.3s ease; z-index: 300;
+    text-align: center; white-space: pre-line; line-height: 1.4;
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.error { border-color: var(--red); color: #FCA5A5; }
@@ -1249,7 +1250,7 @@ async function startUjian() {
   if (!window._isAdmin) {
     const cfg = await getMaintenanceConfig();
     if (cfg.enabled) {
-      showToast('🛠️ ' + (cfg.message || 'Sedang maintenance, coba lagi nanti.'), 'error');
+      showToast('🛠️ ' + (cfg.message || 'Sedang perbaikan\nmohon tunggu'), 'error');
       return;
     }
   }
