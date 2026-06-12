@@ -463,6 +463,16 @@
   }
   .btn-home:hover { border-color: var(--blue); }
 
+  /* Answer feedback */
+  .feedback-banner {
+    border-radius: var(--radius-sm); padding: 12px 16px;
+    font-size: 14px; font-weight: 700; text-align: center;
+    display: none; animation: slideIn 0.25s ease;
+  }
+  .feedback-banner.show { display: block; }
+  .feedback-banner.benar { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .feedback-banner.salah { background: rgba(239,68,68,0.15); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
+
   /* ===== TOAST ===== */
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
@@ -689,6 +699,8 @@
     </div>
 
     <div class="options-list" id="optionsList"></div>
+
+    <div class="feedback-banner" id="feedbackBanner"></div>
 
     <div class="ujian-actions">
       <button class="prev-btn" id="prevBtn" onclick="prevSoal()">← Prev</button>
@@ -1060,6 +1072,11 @@ function renderSoal() {
   const idx = state.currentIdx;
   const soal = state.soalList[idx];
 
+  // Hide feedback
+  const banner = document.getElementById('feedbackBanner');
+  banner.className = 'feedback-banner';
+  banner.textContent = '';
+
   // Step progress
   const prog = document.getElementById('stepProgress');
   prog.innerHTML = state.soalList.map((_, i) => {
@@ -1082,15 +1099,27 @@ function renderSoal() {
 
   const optList = document.getElementById('optionsList');
   const keys = ['A', 'B', 'C', 'D'];
+  const jawaban = state.jawabanUser[idx];
   optList.innerHTML = soal.opsi.map((opt, i) => {
     const key = keys[i];
-    const isSelected = state.jawabanUser[idx] === key;
+    let cls = 'option-item';
+    if (jawaban !== null) {
+      if (key === soal.jawaban) cls += ' correct';
+      else if (key === jawaban && jawaban !== soal.jawaban) cls += ' wrong';
+    } else if (jawaban === key) cls += ' selected';
     return `
-      <div class="option-item ${isSelected ? 'selected' : ''}" onclick="pilihJawaban('${key}', ${i})">
+      <div class="${cls}" ${jawaban !== null ? '' : `onclick="pilihJawaban('${key}')"`}>
         <div class="option-key">${key}</div>
         <div class="option-text">${opt.replace(/^[A-D]\.\s*/, '')}</div>
       </div>`;
   }).join('');
+
+  // Restore feedback if already answered
+  if (jawaban !== null) {
+    const benar = jawaban === soal.jawaban;
+    banner.className = 'feedback-banner show ' + (benar ? 'benar' : 'salah');
+    banner.textContent = benar ? '✅ Benar!' : '❌ Salah!';
+  }
 
   // Buttons
   document.getElementById('prevBtn').style.display = idx === 0 ? 'none' : 'block';
@@ -1101,12 +1130,23 @@ function renderSoal() {
 
 function pilihJawaban(key) {
   state.jawabanUser[state.currentIdx] = key;
-  document.getElementById('nextBtn').disabled = false;
-  // Re-render options
+  const soal = state.soalList[state.currentIdx];
+  const benar = key === soal.jawaban;
   const keys = ['A','B','C','D'];
+
+  // Mark options
   document.querySelectorAll('.option-item').forEach((el, i) => {
-    el.classList.toggle('selected', keys[i] === key);
+    el.onclick = null; // disable re-click
+    if (keys[i] === soal.jawaban) el.classList.add('correct');
+    else if (keys[i] === key && !benar) el.classList.add('wrong');
   });
+
+  // Show feedback banner
+  const banner = document.getElementById('feedbackBanner');
+  banner.className = 'feedback-banner show ' + (benar ? 'benar' : 'salah');
+  banner.textContent = benar ? '✅ Benar!' : '❌ Salah!';
+
+  document.getElementById('nextBtn').disabled = false;
 }
 
 function nextSoal() {
