@@ -291,6 +291,32 @@
   .soal-btn:hover { border-color: var(--blue); }
   .soal-btn.selected { border-color: var(--blue); background: rgba(59,130,246,0.12); color: var(--blue-light); }
 
+  /* Tingkat Kesulitan */
+  .kesulitan-options { display: flex; gap: 8px; }
+  .kesulitan-btn {
+    flex: 1; background: var(--card); border: 2px solid var(--border);
+    color: var(--white); font-family: 'Poppins', sans-serif;
+    font-size: 12px; font-weight: 600; padding: 10px 6px;
+    border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .kesulitan-btn .k-emoji { font-size: 18px; }
+  .kesulitan-btn .k-label { font-size: 11px; }
+  .kesulitan-btn:hover { border-color: var(--blue); }
+  .kesulitan-btn.selected-mudah { border-color: var(--green); background: rgba(16,185,129,0.1); color: var(--green); }
+  .kesulitan-btn.selected-sedang { border-color: var(--yellow); background: rgba(245,158,11,0.1); color: var(--yellow); }
+  .kesulitan-btn.selected-sulit { border-color: var(--red); background: rgba(239,68,68,0.1); color: var(--red); }
+
+  /* Difficulty badge in ujian screen */
+  .kesulitan-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .kesulitan-badge.mudah { background: rgba(16,185,129,0.15); color: var(--green); }
+  .kesulitan-badge.sedang { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .kesulitan-badge.sulit { background: rgba(239,68,68,0.15); color: var(--red); }
+
   .start-btn {
     width: 100%; padding: 16px;
     background: linear-gradient(135deg, #3B82F6, #2563EB);
@@ -896,6 +922,24 @@
       </div>
     </div>
 
+    <div id="kesulitanSection" style="display:none">
+      <div class="section-label">Tingkat Kesulitan</div>
+      <div class="kesulitan-options" id="kesulitanOptions">
+        <button class="kesulitan-btn selected-mudah" data-val="mudah" onclick="selectKesulitan('mudah')">
+          <span class="k-emoji">🟢</span>
+          <span class="k-label">Mudah</span>
+        </button>
+        <button class="kesulitan-btn" data-val="sedang" onclick="selectKesulitan('sedang')">
+          <span class="k-emoji">🟡</span>
+          <span class="k-label">Sedang</span>
+        </button>
+        <button class="kesulitan-btn" data-val="sulit" onclick="selectKesulitan('sulit')">
+          <span class="k-emoji">🔴</span>
+          <span class="k-label">Sulit</span>
+        </button>
+      </div>
+    </div>
+
     <button class="start-btn" id="startBtn" disabled onclick="startUjian()">
       Mulai Ujian →
     </button>
@@ -1129,6 +1173,7 @@ let state = {
   jenjang: null,
   mapel: null,
   jumlahSoal: 5,
+  kesulitan: 'mudah',
   soalList: [],
   jawabanUser: [],
   currentIdx: 0,
@@ -1209,6 +1254,7 @@ function selectJenjang(id) {
   renderMapel(id);
   document.getElementById('mapelSection').style.display = 'block';
   document.getElementById('soalSection').style.display = 'block';
+  document.getElementById('kesulitanSection').style.display = 'block';
   checkStartReady();
 }
 
@@ -1233,6 +1279,14 @@ function renderSoalBtns() {
       document.querySelectorAll('.soal-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
     });
+  });
+}
+
+function selectKesulitan(val) {
+  state.kesulitan = val;
+  document.querySelectorAll('.kesulitan-btn').forEach(btn => {
+    btn.className = 'kesulitan-btn';
+    if (btn.dataset.val === val) btn.classList.add('selected-' + val);
   });
 }
 
@@ -1263,7 +1317,7 @@ async function startUjian() {
   document.getElementById('loadingSub').textContent = `Membuat ${state.jumlahSoal} soal ${mapelName} untuk ${state.jenjang}...`;
 
   try {
-    const soal = await generateSoal(state.jenjang, mapelName, state.jumlahSoal);
+    const soal = await generateSoal(state.jenjang, mapelName, state.jumlahSoal, state.kesulitan);
     state.soalList = soal;
     state.jawabanUser = new Array(soal.length).fill(null);
     state.currentIdx = 0;
@@ -1275,8 +1329,13 @@ async function startUjian() {
 }
 
 // ===== GROQ API =====
-async function generateSoal(jenjang, mapel, jumlah) {
-  const prompt = `Kamu adalah guru ${mapel} untuk jenjang ${jenjang} di Indonesia. Buatkan ${jumlah} soal pilihan ganda yang sesuai dengan kurikulum ${jenjang} Indonesia.
+async function generateSoal(jenjang, mapel, jumlah, kesulitan = 'mudah') {
+  const kesulitanDesc = {
+    mudah: 'mudah — konsep dasar, hafalan, pertanyaan langsung sesuai materi pokok',
+    sedang: 'sedang — pemahaman konsep, analisis sederhana, butuh pemikiran lebih dari sekadar hafalan',
+    sulit: 'sulit — analisis mendalam, soal multi-langkah, konteks kompleks, hots (higher order thinking skills)',
+  };
+  const prompt = `Kamu adalah guru ${mapel} untuk jenjang ${jenjang} di Indonesia. Buatkan ${jumlah} soal pilihan ganda dengan tingkat kesulitan: ${kesulitanDesc[kesulitan] || kesulitanDesc.mudah}.
 
 Format WAJIB (JSON array, tanpa markdown, tanpa penjelasan lain):
 [
@@ -1289,7 +1348,7 @@ Format WAJIB (JSON array, tanpa markdown, tanpa penjelasan lain):
 ]
 
 Aturan:
-- Soal sesuai tingkat kesulitan ${jenjang}
+- Soal sesuai tingkat kesulitan yang diminta (${kesulitan})
 - Setiap soal punya 4 opsi (A, B, C, D)
 - Field "jawaban" HANYA huruf: A, B, C, atau D
 - Soal bervariasi, tidak mengulang topik
@@ -1327,8 +1386,10 @@ Aturan:
 // ===== UJIAN SCREEN =====
 function startUjianScreen() {
   const mapelObj = MAPEL[state.jenjang].find(m => m.id === state.mapel);
+  const kesulitanEmoji = { mudah: '🟢', sedang: '🟡', sulit: '🔴' };
   document.getElementById('ujianJenjang').textContent = state.jenjang;
-  document.getElementById('ujianMapel').textContent = mapelObj ? mapelObj.name : state.mapel;
+  document.getElementById('ujianMapel').innerHTML =
+    `${mapelObj ? mapelObj.name : state.mapel} <span class="kesulitan-badge ${state.kesulitan}">${kesulitanEmoji[state.kesulitan]} ${state.kesulitan}</span>`;
 
   // Timer: 90 detik per soal
   state.timerSisa = state.soalList.length * 90;
@@ -1487,8 +1548,9 @@ function selesaiUjian(timeout) {
   document.getElementById('resultTitle').textContent = timeout ? '⏰ Waktu Habis!' : title;
 
   const mapelObj = MAPEL[state.jenjang].find(m => m.id === state.mapel);
+  const kesulitanLabel = { mudah: '🟢 Mudah', sedang: '🟡 Sedang', sulit: '🔴 Sulit' };
   document.getElementById('resultSub').textContent =
-    `${state.jenjang} • ${mapelObj?.name || state.mapel} • ${total} Soal`;
+    `${state.jenjang} • ${mapelObj?.name || state.mapel} • ${total} Soal • ${kesulitanLabel[state.kesulitan] || state.kesulitan}`;
 
   document.getElementById('statBenar').textContent = benar;
   document.getElementById('statSalah').textContent = salah;
@@ -1547,6 +1609,12 @@ function goHome() {
   state.soalList = [];
   state.jawabanUser = [];
   state.currentIdx = 0;
+  // Reset kesulitan UI to mudah
+  state.kesulitan = 'mudah';
+  document.querySelectorAll('.kesulitan-btn').forEach(btn => {
+    btn.className = 'kesulitan-btn';
+    if (btn.dataset.val === 'mudah') btn.classList.add('selected-mudah');
+  });
   showScreen('homeScreen');
 }
 
@@ -1564,6 +1632,7 @@ async function saveHasilUjian({ benar, salah, skip, nilai, total }) {
       jenjang: state.jenjang,
       mapel: state.mapel,
       mapelName: mapelObj?.name || state.mapel,
+      kesulitan: state.kesulitan,
       jumlahSoal: total,
       benar, salah, skip, nilai,
       timestamp: window._fsTimestamp(),
@@ -1826,7 +1895,7 @@ async function loadAdminData() {
                 <img class="activity-avatar" src="${d.foto || ''}" alt="" onerror="this.src=''" />
                 <div class="activity-info">
                   <div class="activity-name">${d.nama || d.email || 'User'}</div>
-                  <div class="activity-detail">${d.jenjang} • ${d.mapelName || d.mapel} • ${d.jumlahSoal} soal${timeStr ? ' • ' + timeStr : ''}</div>
+                  <div class="activity-detail">${d.jenjang} • ${d.mapelName || d.mapel} • ${d.jumlahSoal} soal${d.kesulitan ? ' • ' + d.kesulitan : ''}${timeStr ? ' • ' + timeStr : ''}</div>
                 </div>
                 <div class="activity-score ${scoreClass}">${d.nilai}</div>
               </div>`;
